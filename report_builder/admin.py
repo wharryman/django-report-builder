@@ -4,7 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django import forms
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
-from report_builder.models import DisplayField, Report, FilterField, Format
+from report_builder.models import *
 from django.conf import settings
 
 static_url = getattr(settings, 'STATIC_URL', '/static/')
@@ -92,6 +92,11 @@ class ReportAdmin(admin.ModelAdmin):
     
 admin.site.register(Report, ReportAdmin)
 admin.site.register(Format)
+admin.site.register(GraphField)
+admin.site.register(RequiredFilter)
+admin.site.register(DisplayField)
+admin.site.register(FilterField)
+admin.site.register(Whitelist)
 
 def export_to_report(modeladmin, request, queryset):
     admin_url = request.get_full_path()

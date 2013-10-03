@@ -9,7 +9,7 @@ from django.forms.models import inlineformset_factory
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, redirect, get_object_or_404, render
 from django.template import RequestContext
-from report_builder.models import Report, DisplayField, FilterField, Format
+from report_builder.models import Report, DisplayField, FilterField, Format, Report_Category
 from report_builder.utils import javascript_date_format, duplicate, get_model_from_path_string
 from django.utils.decorators import method_decorator
 from django.views.generic.edit import CreateView, UpdateView
@@ -30,7 +30,7 @@ from dateutil import parser
 class ReportForm(forms.ModelForm):
     class Meta:
         model = Report
-        fields = ['name', 'distinct', 'root_model']
+        fields = ['name', 'description', 'distinct', 'root_model', 'category']
 
 
 class ReportEditForm(forms.ModelForm):
@@ -325,6 +325,31 @@ def sort_helper(x, sort_key, date_field=False):
         result = x[sort_key]     
     return result.lower() if isinstance(result, basestring) else result
 
+def process_queryset(report, user, preview=False, queryset=None):
+    """ 1. perform filters, 
+        2. calculate post-filter operations (props, customs, etc),
+        3. convert #2 to filter terms using pk lists
+        4. Remake queryset with new filter terms
+        5. Apply values (grouping), aggregations, annotations, etc
+    """
+    
+    message= ""
+    model_class = report.root_model.model_class()
+
+    if queryset != None:
+        objects = report.add_aggregates(queryset)
+    else:
+        try:
+            objects = report.get_query()
+            print('objects', objects)
+        except exceptions.ValidationError, e:
+            message += "Validation Error: {0!s}. Something may be wrong with the report's filters.".format(e)
+            return [], message
+        except ValueError, e:
+            message += "Value Error: {0!s}. Something may be wrong with the report's filters. For example it may be expecting a number but received a character.".format(e)
+            return [], message
+
+
 def report_to_list(report, user, preview=False, queryset=None):
     """ Create list from a report with all data filtering
     preview: Return only first 50
@@ -338,12 +363,21 @@ def report_to_list(report, user, preview=False, queryset=None):
     else:
         try:
             objects = report.get_query()
+            print('objects', objects)
         except exceptions.ValidationError, e:
             message += "Validation Error: {0!s}. Something may be wrong with the report's filters.".format(e)
             return [], message
         except ValueError, e:
             message += "Value Error: {0!s}. Something may be wrong with the report's filters. For example it may be expecting a number but received a character.".format(e)
             return [], message
+    #testing loop, take out later
+    """
+    for filter_field in report.filterfield_set.all().order_by('grouping'):
+        print('path', filter_field.path)
+        print('path_verbose', filter_field.path_verbose)
+        print('field', filter_field.field)
+        print('field_verbose', filter_field.field_verbose)
+    """
 
     # Display Values
     display_field_paths = []
@@ -391,6 +425,7 @@ def report_to_list(report, user, preview=False, queryset=None):
             else:
                 display_field_paths += [display_field_key]
                 append_display_total(display_totals, display_field, display_field_key)
+            print("display_field_paths", display_field_paths)
         else:
             message += "You don't have permission to " + display_field.name
     try:
@@ -420,13 +455,17 @@ def report_to_list(report, user, preview=False, queryset=None):
                     m2m_relations.append(property_root)
             values_and_properties_list = []
             filtered_report_rows = []
-            group = None 
+            group = [] 
             for df in report.displayfield_set.all():
                 if df.group:
-                    group = df.path + df.field
-                    break
+                    group.append(df.path + df.field)
             if group:
-                filtered_report_rows = report.add_aggregates(objects.values_list(group))
+                print("grouping now!")
+                print(group)
+                #filtered_report_rows = report.add_aggregates(objects.values_list(group))
+                print("not really grouping now")
+                filtered_report_rows = report.group_query(objects, group)
+                #print(filtered_report_rows.query)
             else:
                 values_list = objects.values_list(*display_field_paths)
 
