@@ -790,6 +790,16 @@ def create_copy(request, pk):
         new_filter.pk = None
         new_filter.report = new_report
         new_filter.save()
+    for required in report.requiredfilter_set.all():
+        new_filter = copy.copy(required)
+        new_filter.pk = None
+        new_filter.report = new_report
+        new_filter.save()
+    for graph in report.graphfield_set.all():
+        new_filter = copy.copy(graph)
+        new_filter.pk = None
+        new_filter.report = new_report
+        new_filter.save()
     return redirect(new_report)
 
 

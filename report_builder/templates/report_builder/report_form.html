@@ -127,6 +127,7 @@
                   <th>Filter Type</th>
                   <th>Value</th>
                   <th>Exclude?</th>
+                  <th>Grouping</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,6 +154,7 @@
                         <td>{{ form.filter_value }} {{ form.filter_value2 }}</td>
                     {% endif %}
                     <td>{{ form.exclude }}</td>
+                    <td>{{ form.grouping }}</td>
                   </tr>
                 {% endfor %}
               </tbody>

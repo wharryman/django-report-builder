@@ -2,6 +2,7 @@ from itertools import groupby
 import functools
 import operator
 from collections import defaultdict
+import numbers
 
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
@@ -65,7 +66,6 @@ class Report(models.Model):
             status = status and r.requirements_met()
         return status
 
-
     def add_aggregates(self, queryset):
         for display_field in self.displayfield_set.filter(aggregate__isnull=False):
             if display_field.aggregate == "Avg":
@@ -110,16 +110,36 @@ class Report(models.Model):
             query.add(q, Q.OR)
 
         objs = model_class.objects.filter(query)
-        values = self.grouping_values()
-        objs = objs.values(*values)
+        #grouping
+        group_values = self.grouping_values()
+        print("groupvalues", group_values)
+        objs = objs.values(*group_values)
         objs = self.add_aggregates(objs)
-        objs = objs.order_by(*values)
+        #sorting
+        sort_values = self.sorting_values()
+        print("sortvalues", sort_values)
+        for g in group_values:
+            if g not in sort_values:
+                sort_values.append(g)
+        objs = objs.order_by(*sort_values)
         if report.distinct:
             obj = objs.distinct()
         return objs
 
     def grouping_values(self):
-        return [str(x.path)+str(x.field) for x in self.displayfield_set.filter(group=True)]
+        return [x.get_path_key() for x in self.displayfield_set.filter(group=True)]
+
+    def sorting_values(self):
+        sort = []
+        for x in self.displayfield_set.filter(sort__gt=0).order_by('-sort'):
+            if x.sort_reverse:
+                sort.append("-"+x.get_path_key())
+            else:
+                sort.append(x.get_path_key())
+        return sort
+
+
+
     
     @models.permalink
     def get_absolute_url(self):
@@ -249,13 +269,31 @@ class DisplayField(models.Model):
             display_field_key += '__sum'
         return display_field_key
 
-
+    def format_value(self, value):
+        "attempt to apply the DisplayField format to a value"
+        
+        if (value == None or self.display_format == None):
+            return value
+        if isinstance(value, numbers.Number):
+            try:
+                value = self.display_format.string.format(value)
+                return float(value)
+            except:
+                print("cannot convert to Float")
+                return value
+        else:
+            # Try to format the value, let it go without formatting for ValueErrors
+            try:
+                return self.display_format.string.format(value)
+            except ValueError, AttributeError:
+                print("cannot apply format")
+                return value
 
     def __unicode__(self):
         return self.name
     
     def __str__(self):
-        return self.name
+        return self.name + " " + self.report.__str__()
         
 @python_2_unicode_compatible
 class FilterField(models.Model):
@@ -455,10 +493,11 @@ class GraphField(models.Model):
 
     def graph_values(self):
         grouping = self.get_grouping()
-        listx = defaultdict(list)
-        listy = defaultdict(list)
+        listx, listy = (defaultdict(list) for i in range(2))
         query = self.report.get_query()
-        for value in query:
+        print(query)
+        x0, y0 = None, None
+        for i, value in enumerate(query):
             print("value", value)
             if grouping:
                 print('grouping', grouping)
@@ -467,8 +506,10 @@ class GraphField(models.Model):
                 key = ""
             print("key", key)
             print(self.x_values.field)
-            listx[key+"_x"].append( value[self.x_values.get_path_key()])
-            listy[key+"_y"].append( value[self.y_values.get_path_key()])
+            x = self.x_values.format_value(value[self.x_values.get_path_key()])
+            y = self.y_values.format_value(value[self.y_values.get_path_key()])
+            listx[key+"_x"].append(x) 
+            listy[key+"_y"].append(y) 
         print('listx', listx)
         print('listy', listy)
         return (listx, listy)

@@ -89,12 +89,15 @@ class ReportAdmin(admin.ModelAdmin):
         obj.save()
         if star_user: # Star created reports automatically
             obj.starred.add(request.user)
+
+class DisplayFieldAdmin(admin.ModelAdmin):
+    list_display = ('name', 'report')
     
 admin.site.register(Report, ReportAdmin)
 admin.site.register(Format)
 admin.site.register(GraphField)
 admin.site.register(RequiredFilter)
-admin.site.register(DisplayField)
+admin.site.register(DisplayField, DisplayFieldAdmin)
 admin.site.register(FilterField)
 admin.site.register(Whitelist)
 
