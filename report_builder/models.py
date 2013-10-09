@@ -101,7 +101,7 @@ class Report(models.Model):
         #grouped Q objects
         for key, group in groupby(report.filterfield_set.all(), lambda x: x.grouping):
             field_list.append([x.process_filter() for x in group])
-        print(field_list)
+        #print(field_list)
         query = Q()
         for c in field_list:
             q = Q()
@@ -112,12 +112,12 @@ class Report(models.Model):
         objs = model_class.objects.filter(query)
         #grouping
         group_values = self.grouping_values()
-        print("groupvalues", group_values)
+        #print("groupvalues", group_values)
         objs = objs.values(*group_values)
         objs = self.add_aggregates(objs)
         #sorting
         sort_values = self.sorting_values()
-        print("sortvalues", sort_values)
+        #print("sortvalues", sort_values)
         for g in group_values:
             if g not in sort_values:
                 sort_values.append(g)
@@ -413,7 +413,7 @@ class FilterField(models.Model):
                     if filter_field.filter_type == 'range':
                         filter_value = [filter_value, filter_field.filter_value2]
                 filter_ = (filter_string, filter_value)
-            print("filter is", filter_)
+            #print("filter is", filter_)
             if filter_field.exclude:
                 obj = Q(filter_, negate=True)
             else:
@@ -491,28 +491,35 @@ class GraphField(models.Model):
     x_values = models.ForeignKey('DisplayField', related_name="x_values")
     y_values = models.ForeignKey('DisplayField', related_name="y_values")
 
-    def graph_values(self):
+    def graph_values(self, query=None):
+        "Returns x and y value lists for use in creating charts of data"
         grouping = self.get_grouping()
-        listx, listy = (defaultdict(list) for i in range(2))
-        query = self.report.get_query()
-        print(query)
-        x0, y0 = None, None
+        listx, listy, full_list = (defaultdict(list) for i in range(3))
+        if not query:
+            query = self.report.get_query()
+        #print(query)
         for i, value in enumerate(query):
-            print("value", value)
+            #print("value", value)
             if grouping:
-                print('grouping', grouping)
+                #print('grouping', grouping)
                 key = "".join(value.get(x, "") for x in grouping)
             else:
                 key = ""
-            print("key", key)
-            print(self.x_values.field)
+            #print("key", key)
+            #print(self.x_values.field)
             x = self.x_values.format_value(value[self.x_values.get_path_key()])
             y = self.y_values.format_value(value[self.y_values.get_path_key()])
             listx[key+"_x"].append(x) 
             listy[key+"_y"].append(y) 
-        print('listx', listx)
-        print('listy', listy)
-        return (listx, listy)
+            full_list[key].append(value)
+        #print('listx', listx)
+        #print('listy', listy)
+        print("full list", full_list)
+        return (listx, listy, full_list)
+
+    def table_values(self, query=None):
+        "Returns tables of report data as lists grouped by graph keys"
+        grouping = self.get_grouping()
 
     def y_list(self):
         pass
