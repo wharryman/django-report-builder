@@ -370,6 +370,7 @@ class FilterField(models.Model):
         """ returns a Q object from a given filter
 
         """
+        message = ""
         filter_field = self
         try:
             # exclude properties from standard ORM filtering 
@@ -514,7 +515,7 @@ class GraphField(models.Model):
             full_list[key].append(value)
         #print('listx', listx)
         #print('listy', listy)
-        print("full list", full_list)
+        #print("full list", full_list)
         return (listx, listy, full_list)
 
     def table_values(self, query=None):
