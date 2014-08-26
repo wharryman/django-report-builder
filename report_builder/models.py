@@ -372,6 +372,7 @@ class FilterField(models.Model):
         """
         message = ""
         filter_field = self
+        print("processing filter", self)
         try:
             # exclude properties from standard ORM filtering 
             if '[property]' in filter_field.field_verbose:
@@ -396,15 +397,16 @@ class FilterField(models.Model):
             else:
                 # All filter values are stored as strings, but may need to be converted
                 if '[Date' in filter_field.field_verbose:
+                    print("processing date", filter_field.filter_value)
                     filter_value = parser.parse(filter_field.filter_value)
-                    if settings.USE_TZ:
+                    if (not filter_value.utcoffset() and settings.USE_TZ):
                         filter_value = timezone.make_aware(
                             filter_value,
                             timezone.get_current_timezone()
                         )
                     if filter_field.filter_type == 'range':
                         filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
-                        if settings.USE_TZ:
+                        if (not filter_value.utcoffset and settings.USE_TZ):
                             filter_value[1] = timezone.make_aware(
                                 filter_value[1],
                                 timezone.get_current_timezone()
@@ -421,12 +423,17 @@ class FilterField(models.Model):
                 obj = Q(filter_)
             return obj
 
-        except Exception:
+        except Exception as err:
             import sys
+            print(type(err))
+            print(err.args)
+            print(err)
+            
             e = sys.exc_info()[1]
             message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
             message += "you found a bug! "
             message += "If you made this in admin, then you probably did something wrong."
+            print("message", message)
             return (None, None)
 
     @property
